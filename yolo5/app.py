@@ -6,6 +6,8 @@ import uuid
 import yaml
 from loguru import logger
 import os
+import boto3
+from pymongo import MongoClient
 
 images_bucket = os.environ['BUCKET_NAME']
 
@@ -24,9 +26,13 @@ def predict():
     # Receives a URL parameter representing the image to download from S3
     img_name = request.args.get('imgName')
 
+
     # TODO download img_name from S3, store the local image path in original_img_path
     #  The bucket name should be provided as an env var BUCKET_NAME.
-    original_img_path = ...
+    s3_client = boto3.client('s3')
+    s3_client.download_file('BUCKET_NAME', 'imgName', 'imgName.dd')
+    original_img_path = 'imgName.dd'
+
 
     logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
@@ -47,6 +53,28 @@ def predict():
     predicted_img_path = Path(f'static/data/{prediction_id}/{original_img_path}')
 
     # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
+
+    def upload_file(file_name, bucket, object_name=None):
+        """Upload a file to an S3 bucket
+
+        :param file_name: File to upload
+        :param bucket: Bucket to upload to
+        :param object_name: S3 object name. If not specified then file_name is used
+        :return: True if file was uploaded, else False
+        """
+
+        # If S3 object_name was not specified, use file_name
+        if object_name is None:
+            object_name = os.path.basename(file_name)
+
+        # Upload the file
+        upload_client = boto3.client('s3')
+        try:
+            response = upload_client.upload_file(predicted_img_path, BUCKET_NAME, imgName.prec)
+        except ClientError as e:
+            logging.error(e)
+            return False
+        return True
 
     # Parse prediction labels and create a summary
     pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
@@ -73,6 +101,16 @@ def predict():
         }
 
         # TODO store the prediction_summary in MongoDB
+        try:
+            conn = MongoClient()
+            print("Connected successfully!!!")
+        except:
+            print("Could not connect to MongoDB")
+
+        db = conn.database
+        collection = db.mongoCluster
+        # Insert Data
+        rec_id1 = collection.insert_one(prediction_summary)
 
         return prediction_summary
     else:
