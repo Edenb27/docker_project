@@ -16,6 +16,8 @@ with open("data/coco128.yaml", "r") as stream:
 
 app = Flask(__name__)
 
+logger.info(images_bucket)
+
 @app.route('/predict', methods=['POST'])
 def predict():
     # Generates a UUID for this current prediction HTTP request. This id can be used as a reference in logs to identify and track individual prediction requests.
@@ -26,13 +28,12 @@ def predict():
     # Receives a URL parameter representing the image to download from S3
     img_name = request.args.get('imgName')
 
-
     # TODO download img_name from S3, store the local image path in original_img_path
     #  The bucket name should be provided as an env var BUCKET_NAME.
-    s3_client = boto3.client('s3')
-    s3_client.download_file('BUCKET_NAME', img_name, img_name)
-    original_img_path = img_name
 
+    s3 = boto3.client('s3')
+    s3.download_file(images_bucket, img_name, img_name)
+    original_img_path = img_name
 
     logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
@@ -55,6 +56,7 @@ def predict():
     # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
 
     def upload_file(file_name, bucket, object_name=None):
+
         """Upload a file to an S3 bucket
 
         :param file_name: File to upload
@@ -62,7 +64,6 @@ def predict():
         :param object_name: S3 object name. If not specified then file_name is used
         :return: True if file was uploaded, else False
         """
-
         # If S3 object_name was not specified, use file_name
         if object_name is None:
             object_name = os.path.basename(file_name)
@@ -70,7 +71,7 @@ def predict():
         # Upload the file
         upload_client = boto3.client('s3')
         try:
-            response = upload_client.upload_file(predicted_img_path, BUCKET_NAME, imgName.prec)
+            response = upload_client.upload_file(predicted_img_path, images_bucket, img_name.prec)
         except ClientError as e:
             logging.error(e)
             return False
@@ -104,14 +105,12 @@ def predict():
         try:
             conn = MongoClient()
             print("Connected successfully!!!")
+            db = conn.database
+            collection = db.mongoCluster
+            #Insert Data
+            rec_id1 = collection.insert_one(prediction_summary)
         except:
             print("Could not connect to MongoDB")
-
-        db = conn.database
-        collection = db.mongoCluster
-        # Insert Data
-        rec_id1 = collection.insert_one(prediction_summary)
-
         return prediction_summary
     else:
         return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404
