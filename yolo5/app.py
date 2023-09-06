@@ -30,10 +30,16 @@ def predict():
 
     # TODO download img_name from S3, store the local image path in original_img_path
     #  The bucket name should be provided as an env var BUCKET_NAME.
+    try:
+        os.mkdir("static")
+        os.mkdir(os.path.join("static", "data"))
 
+    except FileExistsError:
+        # Directory already exists, you can choose to do nothing or handle it as needed
+        pass
+    original_img_path = f'static/data/{img_name}'
     s3 = boto3.client('s3')
-    s3.download_file(images_bucket, img_name, img_name)
-    original_img_path = img_name
+    s3.download_file(images_bucket, img_name, original_img_path)
 
     logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
@@ -55,27 +61,10 @@ def predict():
 
     # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
 
-    def upload_file(file_name, bucket, object_name=None):
-
-        """Upload a file to an S3 bucket
-
-        :param file_name: File to upload
-        :param bucket: Bucket to upload to
-        :param object_name: S3 object name. If not specified then file_name is used
-        :return: True if file was uploaded, else False
-        """
-        # If S3 object_name was not specified, use file_name
-        if object_name is None:
-            object_name = os.path.basename(file_name)
-
-        # Upload the file
-        upload_client = boto3.client('s3')
-        try:
-            response = upload_client.upload_file(predicted_img_path, images_bucket, img_name.prec)
-        except ClientError as e:
-            logging.error(e)
-            return False
-        return True
+    # Upload the file
+    #s3.upload_file(images_bucket, 'predicted/' + img_name, predicted_img_path)
+    upload_client = boto3.client('s3')
+    upload_client.upload_file(predicted_img_path, images_bucket, original_img_path)
 
     # Parse prediction labels and create a summary
     pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
