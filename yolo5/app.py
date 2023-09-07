@@ -84,6 +84,7 @@ def predict():
             'time': time.time()
         }
 
+
         # TODO store the prediction_summary in MongoDB
         try:
             conn = MongoClient()
