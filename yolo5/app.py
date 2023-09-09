@@ -1,3 +1,4 @@
+import json
 import time
 from pathlib import Path
 from flask import Flask, request
@@ -8,6 +9,7 @@ from loguru import logger
 import os
 import boto3
 from pymongo import MongoClient
+from bson import json_util
 
 images_bucket = os.environ['BUCKET_NAME']
 
@@ -18,9 +20,11 @@ app = Flask(__name__)
 
 logger.info(images_bucket)
 
+
 @app.route('/predict', methods=['POST'])
 def predict():
     # Generates a UUID for this current prediction HTTP request. This id can be used as a reference in logs to identify and track individual prediction requests.
+    global prediction_summary
     prediction_id = str(uuid.uuid4())
 
     logger.info(f'prediction: {prediction_id}. start processing')
@@ -56,48 +60,47 @@ def predict():
     # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
 
     upload_client = boto3.client('s3')
-    upload_client.upload_file(predicted_img_path, images_bucket, img_name)
+    upload_client.upload_file(predicted_img_path, images_bucket, f'{prediction_id}/{original_img_path}')
 
     logger.info('upload success')
+    try:
+        pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
+        if pred_summary_path.exists():
+            with open(pred_summary_path) as f:
+                labels = f.read().splitlines()
+                labels = [line.split(' ') for line in labels]
+                labels = [{
+                    'class': names[int(l[0])],
+                    'cx': float(l[1]),
+                    'cy': float(l[2]),
+                    'width': float(l[3]),
+                    'height': float(l[4]),
+                } for l in labels]
 
-    # Parse prediction labels and create a summary
-    pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
-    if pred_summary_path.exists():
-        with open(pred_summary_path) as f:
-            labels = f.read().splitlines()
-            labels = [line.split(' ') for line in labels]
-            labels = [{
-                'class': names[int(l[0])],
-                'cx': float(l[1]),
-                'cy': float(l[2]),
-                'width': float(l[3]),
-                'height': float(l[4]),
-            } for l in labels]
+            logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary:\n\n{labels}')
 
-        logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary:\n\n{labels}')
+            prediction_summary = {
+                'prediction_id': prediction_id,
+                'original_img_path': original_img_path,
+                'predicted_img_path': predicted_img_path.name,
+                'labels': labels,
+                'time': time.time()
+            }
 
-        prediction_summary = {
-            'prediction_id': prediction_id,
-            'original_img_path': original_img_path,
-            'predicted_img_path': predicted_img_path,
-            'labels': labels,
-            'time': time.time()
-        }
+            # TODO store the prediction_summary in MongoDB
 
+            parsed_json = json.loads(json_util.dumps(prediction_summary))
+            client = MongoClient('mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=myReplicaSet')
+            db = client["mydb"]
+            collection = db["predictions"]
+            collection.insert_one(parsed_json)
+            logger.info("Connected successfully!!!")
 
-        # TODO store the prediction_summary in MongoDB
-        try:
-            conn = MongoClient()
-            print("Connected successfully!!!")
-            db = conn.database
-            collection = db.mongoCluster
-            #Insert Data
-            rec_id1 = collection.insert_one(prediction_summary)
-        except:
-            print("Could not connect to MongoDB")
-        return prediction_summary
-    else:
-        return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404
+            return prediction_summary
+        else:
+            return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404
+    except e:
+        logger.error('error', e)
 
 
 if __name__ == "__main__":
