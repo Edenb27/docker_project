@@ -1,8 +1,11 @@
+import requests
 import telebot
 from loguru import logger
 import os
 import time
 from telebot.types import InputFile
+import boto3
+
 
 
 class Bot:
@@ -66,11 +69,37 @@ class Bot:
 
 
 class ObjectDetectionBot(Bot):
+    def yolo5_request(self, s3_img_path):
+        yolo5_api_url = "http://localhost:8081/predict"
+        response = requests.post(f"{yolo5_api_url}?imgName={s3_img_path}")
+        return response.json()
+
     def handle_message(self, msg):
-        logger.info(f'Incoming message: {msg}')
+        #logger.info(f'Incoming message: {msg}')
+        if msg.get('text'):
+            hello = f'\nHello and welcome to Eden Predict-Bot \n' \
+                    f'\n Please send image to prediction'
+            self.send_text(msg['chat']['id'], hello)
+
+
 
         if self.is_current_msg_photo(msg):
             photo_path = self.download_user_photo(msg)
+            BUCKET_NAME = 'edenb27-docker'
+            img_name = f'images/{photo_path}'
+            client = boto3.client('s3')
+            client.upload_file(photo_path, BUCKET_NAME, img_name)
+            self.yolo5_request(img_name)
+            filename = photo_path.split('/')[-1]
+            pred_img_name = f'predicted_{filename}'
+            s3_pred_path = '/'.join(img_name.split('/')[:-1]) + f'/{pred_img_name}'
+            local_path = 'images/pred/'
+            os.makedirs(local_path, exist_ok=True)
+            self.client.download_file(BUCKET_NAME, s3_pred_path, local_path)
+            self.send_photo(msg['chat']['id'], (local_path + pred_img_name), "done")
+
+
+
 
             # TODO upload the photo to S3
             # TODO send a request to the `yolo5` service for prediction

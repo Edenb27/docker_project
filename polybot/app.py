@@ -1,12 +1,19 @@
 import flask
+import requests
 from flask import request
 import os
 from bot import ObjectDetectionBot
 
+
 app = flask.Flask(__name__)
 
 TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
-TELEGRAM_APP_URL = os.environ['TELEGRAM_APP_URL']
+if os.environ.get('TELEGRAM_APP_URL'): # if the TELEGRAM_APP_URL env var is defined, use it
+    TELEGRAM_APP_URL = os.environ['TELEGRAM_APP_URL']
+
+else:  # otherwiese, load the public ip address dynamically from within an EC2 instance
+    # reference https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+    TELEGRAM_APP_URL = requests.get('http://169.254.169.254/latest/meta-data/local-ipv4').text
 
 
 @app.route('/', methods=['GET'])
