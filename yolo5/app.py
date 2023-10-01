@@ -34,11 +34,17 @@ def predict():
 
     # TODO download img_name from S3, store the local image path in original_img_path
     #  The bucket name should be provided as an env var BUCKET_NAME.
+    try:
+        os.mkdir("images")
+        os.mkdir(os.path.join("images", "photos"))
+
+    except FileExistsError:
+        # Directory already exists, you can choose to do nothing or handle it as needed
+        pass
 
     original_img_path = f'{img_name}'
-    s3 = boto3.client('s3')
-    s3.download_file(images_bucket, img_name, original_img_path)
-
+    client = boto3.client('s3')
+    client.download_file(images_bucket, img_name, original_img_path)
     logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
     # Predicts the objects in the image
@@ -55,12 +61,13 @@ def predict():
 
     # This is the path for the predicted image with labels
     # The predicted image typically includes bounding boxes drawn around the detected objects, along with class labels and possibly confidence scores.
+    original_img_path = img_name.split('/')[-1]
     predicted_img_path = Path(f'static/data/{prediction_id}/{original_img_path}')
 
     # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
 
-    upload_client = boto3.client('s3')
-    upload_client.upload_file(predicted_img_path, images_bucket, f'{prediction_id}/{original_img_path}')
+    s3 = boto3.client('s3')
+    s3.upload_file(predicted_img_path, images_bucket, f'{img_name}_predicted')
 
     logger.info('upload success')
     try:

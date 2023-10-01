@@ -70,7 +70,7 @@ class Bot:
 
 class ObjectDetectionBot(Bot):
     def yolo5_request(self, s3_img_path):
-        yolo5_api_url = "http://localhost:8081/predict"
+        yolo5_api_url = "http://yolo5-app:8081/predict"
         response = requests.post(f"{yolo5_api_url}?imgName={s3_img_path}")
         return response.json()
 
