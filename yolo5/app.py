@@ -63,11 +63,11 @@ def predict():
     # The predicted image typically includes bounding boxes drawn around the detected objects, along with class labels and possibly confidence scores.
     original_img_path = img_name.split('/')[-1]
     predicted_img_path = Path(f'static/data/{prediction_id}/{original_img_path}')
-
+    prediction_path = f'{img_name}_predicted'
     # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
 
     s3 = boto3.client('s3')
-    s3.upload_file(predicted_img_path, images_bucket, f'{img_name}_predicted')
+    s3.upload_file(predicted_img_path, images_bucket, prediction_path)
 
     logger.info('upload success')
     try:
@@ -89,7 +89,7 @@ def predict():
             prediction_summary = {
                 'prediction_id': prediction_id,
                 'original_img_path': original_img_path,
-                'predicted_img_path': predicted_img_path.name,
+                'predicted_img_path': prediction_path,
                 'labels': labels,
                 'time': time.time()
             }

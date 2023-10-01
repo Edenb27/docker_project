@@ -1,7 +1,7 @@
 version:  "3"
 services:
   polybot:
-    image: 352708296901.dkr.ecr.us-east-2.amazonaws.com/edenb27-polybot-app:V13
+    image: 352708296901.dkr.ecr.us-east-2.amazonaws.com/edenb27-polybot-app:V21
     container_name: polybot-app
     networks:
       - mongoCluster
@@ -12,7 +12,7 @@ services:
     depends_on:
       - yolo5
   yolo5:
-    image: 352708296901.dkr.ecr.us-east-2.amazonaws.com/edenb27-yolo5-app:V12
+    image: 352708296901.dkr.ecr.us-east-2.amazonaws.com/edenb27-yolo5-app:V17
     container_name: yolo5-app
     env_file:
       - .secret.env
